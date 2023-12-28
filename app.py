@@ -9,19 +9,19 @@ import json
 import traceback as trc
 import modules.om_logging as oml
 import modules.om_observer as omo
+import modules.om_hyper_params as omhp
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, os.path.join(parent_dir, 'mymodules'))
 
 class App():
-
     def __init__(s):
         oml.debug("__init__ called!")
 
     def init_streamlit(s):
-        st.set_page_config(page_title='AI Studio', page_icon=':ai:') 
-        st.header('AI Studio')
+        st.set_page_config(page_title='AI Studio', page_icon='🤖') 
+        st.header('AI Studio 🤖')
         sidebar=st.sidebar
         sidebar.header('Advanced')
         #selectedAddressOption=sidebar.selectbox("Select city", options=list(options.keys()), index=st.session_state['SELECTED_HOUSE_INDEX'])
@@ -61,20 +61,61 @@ class App():
         # Dice: 🎲    
         # Calendar: 🗓️
         # Money: 💰
+        # Robots and AI
+        # 🤖: Robot Face
+        # 🧑‍💻: Person Coding
+        # 🤯: Mind Blown
+        # 🤖🧠: Robot Brain
+        # 🤖💬: Robot Speaking Head
+        # 🤖🤖: Two Robots
+        # Nature
+        # 🌳: Tree
+        # 🌺: Flower
+        # 🌊: Wave
+        # ☀️: Sun
+        # 🌙: Moon
+        # 🌈: Rainbow
+        # Weather
+        # ☔: Umbrella (Rain)
+        # ❄️: Snowflake
+        # 🌪️: Tornado
+        # Transportation
+        # 🚗: Car
+        # 🚲: Bicycle
+        # 🚀: Rocket
+        # ✈️: Airplane
+        # 🚢: Ship
+        # Food and Drink
+        # 🍎: Apple
+        # 🍕: Pizza
+        # 🍔: Hamburger
+        # 🍦: Ice Cream
+        # 🍹: Tropical Drink
+        # ☕: Coffee
+        # Faces and Emotions
+        # 😊: Smiling Face
+        # 😢: Crying Face
+        # 😎: Cool Face
+        # 😍: Heart Eyes
+        # Symbols
+        # 💻: Laptop
+        # 📱: Mobile Phone
+        # 💼: Briefcase
+        # 📚: Book        
         return
 
     def draw_footer(s):
-        # ❤️ 
         footer = st.container()
-        footer.markdown('<style> .reportview-container .main .block-container{ padding-bottom: 5rem; } </style>',unsafe_allow_html=True) 
-        # Print message 
-        footer.markdown("""
-        <div style="position: fixed; bottom: 0; width:100%;">
-            <p style="text-align: right; font-size:0.8em;">
-                Message printed in footer bar
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        with open('./css/custom.css') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+        footer_html = """
+        <footer>
+        Made by Opus Magus with ❤️
+        </footer>
+        """
+        st.markdown(footer_html, unsafe_allow_html=True)
+        return
 
     def on_search_obsolete(s,search_term):
         oml.debug(f"searching for {search_term}")
@@ -226,16 +267,23 @@ class App():
             for stackEle in stack:
                 st.markdown(stackEle)
 
-    def update_hyper_parameters(s,batch_size,num_epochs):
-        s.batch_size=batch_size
-        s.num_epochs=num_epochs
-        return
+    def build_hyper_parameters(s):
+        hyper_parameters=omhp.OMHyperParameters()
+        hyper_parameters.batch_size=64
+        hyper_parameters.num_epochs=30
+        return hyper_parameters
     
     def update_training_progress(s,epoch,loss,val_loss):        
         #s.col1.write(f"epoch {epoch}")
         #s.col2.write(f"loss={loss} and val_loss={val_loss}")
-        progress=(epoch+1)/s.num_epochs
+        progress=(epoch+1)/s.hyper_parameters.num_epochs
         s.training_progress_bar.progress(progress)
+        s.progress_bar_text.markdown(f"epoch {epoch+1}/{s.hyper_parameters.num_epochs}")
+        return
+    
+    def update_training_result(s,loss,val_loss):
+        #s.training_result_widget.text(f"Loss={loss}, Val_Loss={val_loss}")
+        s.training_result_text.text(f"Loss={loss}, Val_Loss={val_loss}")
         return
 
     def display_data(s,train_data_features,train_data_target,eval_data_features,eval_data_target):
@@ -248,23 +296,45 @@ class App():
         col2.expander("Evaluation Target Values").table(eval_data_target)
         return
 
+    def draw_progress_widget(s):
+        s.progress=s.body.container(border=True)
+        s.progress.subheader("Training progress")
+        s.training_progress_bar=s.progress.progress(value=0,text='Epoch')
+        s.progress_bar_text=s.progress.empty()
+        return
+    
+    def draw_training_result_widget(s):
+        s.training_result_widget=s.body.container(border=True)
+        s.training_result_widget.subheader("Training result")
+        s.training_result_text=s.training_result_widget.text("Awaiting training job")
+        return
+    
+    def draw_hyper_parameter_widget(s):
+        widget=s.body.expander("Hyper Parameters")
+        s.hyper_parameters.num_epochs=widget.slider(label="Epochs",min_value=1,max_value=200)
+        s.hyper_parameters.batch_size=widget.slider(label="Batch Size",min_value=1,max_value=128)
+        return
+    
     def draw_template(s):
-        s.body=st.container()
-        s.training_progress_bar=s.body.progress(value=0,text='Epoch')
-        s.body.markdown(":watch:")
+        s.body=st.container(border=False)
+        s.draw_hyper_parameter_widget()
+        s.draw_progress_widget()
+        s.draw_training_result_widget()
         return
 
     def main(s):
         os.system('cls')
         s.init_streamlit()
         oml.success("Started streamlit")
+        s.hyper_parameters=s.build_hyper_parameters()
+        s.draw_footer()
         s.draw_template()
         oml.progress("training model...")
         observer=omo.OMObserver(s)
-        model_callback=ommc.OMModelCallback(observer)
-        omt.train_model(observer, model_callback)
+        model_callback=ommc.OMModelCallback(observer)                        
+        omt.train_model(s.hyper_parameters,observer, model_callback)
         oml.success("model was trained!")
-        st.write("model was trained!")
+        st.success("model was trained!")
         #st.session_state['SELECTED_HOUSE_INDEX']
 
 app=App()

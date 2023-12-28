@@ -225,7 +225,7 @@ def load_file_as_pd(data_file:str, date_col:str=None, index_col:str=None,encodin
     return df
 #endregion functions
 
-def train_model(observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
+def train_model(hyper_parameters,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     oml.debug("train_model called!")
     synthetic_data_file='data/stock_prices.csv'
     generate_synthetic_data(100, synthetic_data_file)
@@ -266,9 +266,9 @@ def train_model(observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     # metrics=[keras.metrics.SparseCategoricalAccuracy()],
     #)
     KerasBackend.set_value(model.optimizer.learning_rate, initial_lr)
-    batch_size = 64 # org:32
-    num_epochs = 20  # Adjust this based on your requirements
-    observer.observe(observer.HYPER_PARAMS_SET_EVENT, args=(batch_size,num_epochs))
+    batch_size=hyper_parameters.batch_size #64 # org:32
+    num_epochs=hyper_parameters.num_epochs  # Adjust this based on your requirements
+    #observer.observe(observer.HYPER_PARAMS_SET_EVENT, args=(batch_size,num_epochs))
     # Calculate the number of steps per epoch
     steps_per_epoch = len(train_data_features) // batch_size
     oml.debug(f"steps_per_epoch={steps_per_epoch}")
