@@ -15,6 +15,7 @@ import modules.om_logging as oml
 import datetime as dt
 import modules.om_model_callback as ommc
 import modules.om_observer as omo
+import modules.om_data_loader as omdl
 
 #region functions
 def save_model_as_hd5_and_json(model):
@@ -104,21 +105,6 @@ def load_data_old(data_file):
     eval_data_target = eval_data[target_col]
     return train_data_features, train_data_target, eval_data_features, eval_data_target
 
-def load_mnist_housing_data():
-    from sklearn.datasets import fetch_california_housing
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler
-    housing = fetch_california_housing()
-    X_train_full, X_test, y_train_full, y_test = train_test_split(housing.data, housing.target, random_state=42)
-    X_train, X_valid, y_train, y_valid = train_test_split(X_train_full, y_train_full, random_state=42)
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_valid = scaler.transform(X_valid)
-    X_test = scaler.transform(X_test)
-    np.random.seed(42)
-    tf.random.set_seed(42)
-    return X_train, y_train, X_valid, y_valid
-
 def on_epoch_end(epoch, logs):
   if (epoch + 1) % 10 == 0:
     print(f"Epoch {epoch}: loss={logs['loss']/1000}K, learning rate={keras.backend.get_value(model.optimizer.lr)}")
@@ -161,19 +147,6 @@ def getTimePrefix():
     now = dt.datetime.now()
     return now.strftime("%H:%M:%S.%f")[:-3] 
 
-def convert_date(date_str:str,date_format:str='%Y-%m-%d',header_row_value:str='date',c:str='a',d:str='b')->dt.datetime:
-    if(date_str=='date'):
-        #oml.debug(f"index={index}")
-        return date_str
-    try: 
-        return dt.datetime.strptime(date_str, date_format)
-    except ValueError:
-        raise Exception(f"Invalid date [{date_str}]")
-    except Exception as ex:
-        oml.error(f"Invalid date [{date_str}]")
-        #raise Exception(ex)
-        return None
-
 def create_sequential_model(num_neurons,train_data_features):
     model = keras.models.Sequential([
         keras.layers.Dense(num_neurons, activation="relu", input_shape=train_data_features.shape[1:]), # train_data_features.shape[1:] slices off the first element of the shape tuple, which is typically the number of samples.
@@ -181,56 +154,14 @@ def create_sequential_model(num_neurons,train_data_features):
     ])
     return model
 
-def load_trade_data(data_file):
-    oml.debug("load_trade_data called!")
-    # Load data   
-    df=load_file_as_pd(data_file,date_col="date",index_col="date",date_format='%y-%m-%d')
-    #data.set_index('date', inplace=True)
-    # Split data
-    train_data, eval_data = train_test_split(df, test_size=0.2, shuffle=False)
-    # Split features and target
-    target_col="future_quote" # remove the column that we will predict from the input data set
-    #X_train -> feature_training_data 
-    #y_train -> target_evaluation_data
-    #X_test -> feature_testing_data
-    #y_test -> target_evaluation_data
-    #feature_training_data is used to train the model
-    #feature_testing_data is used to test the model performance
-    #target_evaluation_data is used to evaluate the model accuracy on the training and testing sets
-
-    train_data_features = train_data.drop(target_col, axis=1).values
-    train_data_target = train_data[target_col].values
-    eval_data_features = eval_data.drop(target_col, axis=1).values
-    eval_data_target = eval_data[target_col].values
-    np.set_printoptions(precision=2)
-    #print(f"train_data_features={train_data_features}")
-    #print(f"train_data_target={train_data_target}")
-    #print(f"eval_data_features={eval_data_features}")
-    #print(f"eval_data_target={eval_data_target}")
-    return train_data_features, train_data_target, eval_data_features, eval_data_target
-
-def load_file_as_ndarr(data_file:str, date_col:str=None, index_col:str=None,encoding:str="UTF8",header_index:int=0)->np.ndarray:
-    df=load_file_as_pd(data_file, date_col, index_col,encoding,header_index)
-    return df.values
-
-def load_file_as_pd(data_file:str, date_col:str=None, index_col:str=None,encoding:str="UTF8",header_index:int=0,date_format:str='%m/%d/%y')->pd.DataFrame:
-    oml.debug("load_file_as_pd called!")
-    df = pd.read_csv(data_file,encoding=encoding,header=header_index,skipinitialspace=True)
-    # Strip leading spaces from column names
-    #df.columns = df.columns.str.strip()
-    #i=0
-    #if(date_col!=None): df[date_col] = df[date_col].apply(convert_date, args=("date"))
-    if(date_col!=None): df[date_col] = df[date_col].apply(convert_date)
-    if(index_col!=None): df.set_index(index_col, inplace=True)
-    return df
 #endregion functions
 
 def train_model(hyper_parameters,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     oml.debug("train_model called!")
-    synthetic_data_file='data/stock_prices.csv'
-    generate_synthetic_data(100, synthetic_data_file)
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_data_old(synthetic_data_file)
-    train_data_features, train_data_target, eval_data_features, eval_data_target=load_trade_data(synthetic_data_file)
+    data_loader=omdl.OMDataLoader()
+    #train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_trade_data()
+    train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_mnist_housing_data()
     observer.observe(observer.DATA_LOADED_EVENT, args=(train_data_features, train_data_target, eval_data_features, eval_data_target))
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_mnist_housing_data()
     #exit(1)
