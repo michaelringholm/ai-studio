@@ -276,9 +276,12 @@ class App():
     def update_training_progress(s,epoch,loss,val_loss):        
         #s.col1.write(f"epoch {epoch}")
         #s.col2.write(f"loss={loss} and val_loss={val_loss}")
+        #oml.debug("update_training_progress()")
         progress=(epoch+1)/s.hyper_parameters.num_epochs
         s.training_progress_bar.progress(progress)
         s.progress_bar_text.markdown(f"epoch {epoch+1}/{s.hyper_parameters.num_epochs}")
+        s.loss_data.append({"epoch":epoch, "loss":loss})        
+        s.lc.line_chart(s.loss_data,x="epoch",y="loss")
         return
     
     def update_training_result(s,loss,val_loss):
@@ -297,10 +300,17 @@ class App():
         return
 
     def draw_progress_widget(s):
-        s.progress=s.body.container(border=True)
-        s.progress.subheader("Training progress")
-        s.training_progress_bar=s.progress.progress(value=0,text='Epoch')
-        s.progress_bar_text=s.progress.empty()
+        widget=s.body.container(border=True)
+        widget.subheader("Training progress")
+        s.training_progress_bar=widget.progress(value=0,text='Epoch')
+        s.progress_bar_text=widget.empty()
+        s.loss_data=[{"epoch":None, "loss":None}]
+        #s.loss_data.append({"epoch":1, "loss":6.25})
+        #s.loss_data.append({"epoch":2, "loss":8.25})
+        #s.loss_data[1]="8.65"
+        #s.loss_line_chart=widget.line_chart(s.loss_data,x="epoch",y="loss")
+        #s.progress_widget=widget
+        s.lc=widget.empty() #widget.line_chart(s.loss_data,x="epoch",y="loss")
         return
     
     def draw_training_result_widget(s):
