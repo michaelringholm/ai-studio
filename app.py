@@ -10,6 +10,7 @@ import traceback as trc
 import modules.om_logging as oml
 import modules.om_observer as omo
 import modules.om_hyper_params as omhp
+import keras
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -319,15 +320,37 @@ class App():
         s.training_result_text=s.training_result_widget.text("Awaiting training job")
         return
     
+    def draw_input_data_widget(s):
+        widget=s.body.expander("Input Data")
+        cols=widget.columns(2)
+        col1=cols[0]
+        col2=cols[1]
+        col1.text_input(label="Filename",value="data/stock_prices.csv")
+        col1.slider(label="Limit dataset",min_value=1,max_value=100000000,value=1000)
+        #col1.slider(label="Learning Rate",min_value=1e-6,max_value=1e-2,value=1e-3)
+        col2.text_input(label="Target column",placeholder="Column to predict")
+        col2.text_input(label="Date formats",placeholder="%d-%y-%m")
+        #col2.slider(label="Output Nodes",min_value=1,max_value=10,value=1)        
+        return
+    
     def draw_hyper_parameter_widget(s):
         widget=s.body.expander("Hyper Parameters")
-        s.hyper_parameters.num_epochs=widget.slider(label="Epochs",min_value=1,max_value=200)
-        s.hyper_parameters.batch_size=widget.slider(label="Batch Size",min_value=1,max_value=128)
+        cols=widget.columns(2)
+        col1=cols[0]
+        col2=cols[1]
+        s.hyper_parameters.num_epochs=col1.slider(label="Epochs",min_value=1,max_value=200,value=20)
+        s.hyper_parameters.batch_size=col1.slider(label="Batch Size",min_value=1,max_value=128,value=1)
+        s.hyper_parameters.learning_rate=col1.slider(label="Learning Rate",min_value=1e-6,max_value=1e-2,value=1e-3)
+        s.hyper_parameters.first_layer_neurons=col2.slider(label="First Layer Neurons",min_value=1,max_value=1000,value=30)
+        s.hyper_parameters.hidden_layers=col2.slider(label="Hidden Layers",min_value=1,max_value=10,value=2)
+        s.hyper_parameters.output_nodes=col2.slider(label="Output Nodes",min_value=1,max_value=10,value=1)
+        widget.selectbox("Optimizer", ["Adam","Adamax","AdamW","Adagrad"])
         return
     
     def draw_template(s):
         s.body=st.container(border=False)
         s.draw_hyper_parameter_widget()
+        s.draw_input_data_widget()
         s.draw_progress_widget()
         s.draw_training_result_widget()
         return
@@ -341,7 +364,9 @@ class App():
         s.draw_template()
         oml.progress("training model...")
         observer=omo.OMObserver(s)
-        model_callback=ommc.OMModelCallback(observer)                        
+        model_callback=ommc.OMModelCallback(observer)     
+        #synthetic_data_file='data/stock_prices.csv'
+        #generate_synthetic_data(100, synthetic_data_file)                   
         omt.train_model(s.hyper_parameters,observer, model_callback)
         oml.success("model was trained!")
         st.success("model was trained!")

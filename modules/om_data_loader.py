@@ -4,6 +4,10 @@ import pandas as pd
 import datetime as dt
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+import hashlib
+import json
+import os
+import csv
 
 class OMDataLoader():
     def __init__(s):
@@ -29,6 +33,47 @@ class OMDataLoader():
         np.set_printoptions(precision=2)
         return train_data_features, train_data_target, eval_data_features, eval_data_target
     
+    def read_from_cache(s,searchUrl):
+        url_hash = hashlib.md5(searchUrl.encode()).hexdigest()
+        file_name=f"../data/housing/{url_hash}.json"
+        with open(file_name, 'r', encoding='utf-8') as f:
+            data=json.load(f)
+        return data
+    
+    def write_to_local_cache_as_json(s,file_name:str,data):
+        #url_hash = hashlib.md5(searchUrl.encode()).hexdigest()
+        #file_name=f"../data/housing/{url_hash}.json"
+        full_path=f"cache/{file_name}"
+        if not os.path.exists(full_path):
+            with open(full_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def write_to_local_cache_as_csv(s,file_name:str,data):
+        #url_hash = hashlib.md5(searchUrl.encode()).hexdigest()
+        #file_name=f"../data/housing/{url_hash}.json"
+        full_path=f"cache/{file_name}"
+        with open(full_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if(type(data) is np.ndarray): 
+                # convert array into dataframe
+                df=pd.DataFrame(data)                
+                #df=df.tail(-1)
+                #df=df.iloc[1:]
+                #df.drop(index=df.index[0], axis=0, inplace=True)
+                oml.debug(f"df={df}")
+                df.to_csv(full_path,index=False,header=False)
+                #writer.writerows(data)
+            else:
+                for i in range(len(data)):
+                    row = data[i]
+                    writer.writerow(row)
+
+    def is_cached(s,file_name:str):
+        #url_hash = hashlib.md5(searchUrl.encode()).hexdigest()
+        #file_name=f"../data/housing/{url_hash}.json"
+        full_path=f"cache/{file_name}"
+        return os.path.exists(full_path)    
+    
     def load_trade_data(s):
         oml.debug("load_trade_data called!")
         data_file='data/stock_prices.csv'
@@ -41,6 +86,11 @@ class OMDataLoader():
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler
         housing = fetch_california_housing()
+        #oml.debug(housing['target'])
+        #oml.debug(type(housing['target']))
+        s.write_to_local_cache_as_csv("mnist_housing_feature_data.csv",housing['data'])
+        s.write_to_local_cache_as_csv("mnist_housing_target_data.csv",housing['target'])
+        s.write_to_local_cache_as_csv("mnist_housing_target_names.csv",housing['target_names'])
         X_train_full, X_test, y_train_full, y_test = train_test_split(housing.data, housing.target, random_state=42)
         X_train, X_valid, y_train, y_valid = train_test_split(X_train_full, y_train_full, random_state=42)
         scaler = StandardScaler()

@@ -16,6 +16,7 @@ import datetime as dt
 import modules.om_model_callback as ommc
 import modules.om_observer as omo
 import modules.om_data_loader as omdl
+import modules.om_hyper_params as omhp
 
 #region functions
 def save_model_as_hd5_and_json(model):
@@ -147,16 +148,16 @@ def getTimePrefix():
     now = dt.datetime.now()
     return now.strftime("%H:%M:%S.%f")[:-3] 
 
-def create_sequential_model(num_neurons,train_data_features):
+def create_sequential_model(train_data_features,first_layer_neurons:int=30,hidden_layers:int=2,output_nodes:int=2):
     model = keras.models.Sequential([
-        keras.layers.Dense(num_neurons, activation="relu", input_shape=train_data_features.shape[1:]), # train_data_features.shape[1:] slices off the first element of the shape tuple, which is typically the number of samples.
+        keras.layers.Dense(first_layer_neurons, activation="relu", input_shape=train_data_features.shape[1:]), # train_data_features.shape[1:] slices off the first element of the shape tuple, which is typically the number of samples.
         keras.layers.Dense(1) # The second layer has 1 node for output.
     ])
     return model
 
 #endregion functions
 
-def train_model(hyper_parameters,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
+def train_model(hyper_parameters:omhp.OMHyperParameters,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     oml.debug("train_model called!")
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_data_old(synthetic_data_file)
     data_loader=omdl.OMDataLoader()
@@ -171,7 +172,7 @@ def train_model(hyper_parameters,observer:omo.OMObserver,modelCallback:ommc.OMMo
     #print(f"Initial Learning Rate: {initial_lr}")
 
     # Initial learning rate
-    initial_lr = 1e-3 #0.00001
+    initial_lr = hyper_parameters.learning_rate #1e-3 #0.00001
     # Set up a LearningRateScheduler using the cosine annealing function
     # Set up a cosine decay learning rate schedule
     #lr_scheduler = keras.optimizers.schedules.CosineDecay(initial_lr, decay_steps=50) # 50
@@ -184,8 +185,8 @@ def train_model(hyper_parameters,observer:omo.OMObserver,modelCallback:ommc.OMMo
     #model.compile(loss='mean_squared_error', optimizer='adam')
 
     #model=create_model_new(num_features=8, num_neurons_per_layer=16)
-    model=create_sequential_model(num_neurons=30,train_data_features=train_data_features)
-    model.compile(loss="mean_squared_error", optimizer=keras.optimizers.SGD(learning_rate=initial_lr))
+    model=create_sequential_model(train_data_features=train_data_features,first_layer_neurons=hyper_parameters.first_layer_neurons,hidden_layers=hyper_parameters.hidden_layers,output_nodes=hyper_parameters.output_nodes)
+    model.compile(loss=hyper_parameters.loss_function, optimizer=hyper_parameters.optimizer)
     observer.observe(observer.MODEL_COMPILE_DONE_EVENT,args=(model))
     #model.compile(loss='mean_squared_error', optimizer=keras.optimizers.RMSprop())
 
