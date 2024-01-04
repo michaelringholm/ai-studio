@@ -6,16 +6,15 @@ import random as rnd
 import modules.om_train as omt
 import modules.om_model_callback as ommc
 import json
+import keras
 import traceback as trc
 import modules.om_logging as oml
 import modules.om_observer as omo
 import modules.om_hyper_params as omhp
 import modules.om_settings as oms
-import keras
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, os.path.join(parent_dir, 'mymodules'))
+import modules.om_input_data as omid
+import modules.om_data_generator as omdg
+import modules.om_predictor as ompr
 
 class App():
     def __init__(s):
@@ -292,17 +291,18 @@ class App():
         return
 
     def display_data(s,train_data_features,train_data_target,eval_data_features,eval_data_target):
-        cols=s.body.columns(2)
-        col1=cols[0]
-        col2=cols[1]
-        col1.expander("Training Features").table(train_data_features)
-        col2.expander("Training Target Values").table(train_data_target)
-        col1.expander("Evaluation Features").table(eval_data_features)
-        col2.expander("Evaluation Target Values").table(eval_data_target)
+        s.data_insights_widget.header("Training Features")
+        s.data_insights_widget.dataframe(train_data_features)
+        s.data_insights_widget.header("Training Target Values")
+        s.data_insights_widget.dataframe(train_data_target)
+        s.data_insights_widget.header("Evaluation Features")
+        s.data_insights_widget.dataframe(eval_data_features)
+        s.data_insights_widget.header("Evaluation Target Values")
+        s.data_insights_widget.dataframe(eval_data_target)
         return
 
     def draw_progress_widget(s):
-        widget=s.body.container(border=True)
+        widget=s.train_tab.container(border=True)
         widget.subheader("Training progress")
         s.training_progress_bar=widget.progress(value=0,text='Epoch')
         s.progress_bar_text=widget.empty()
@@ -316,46 +316,52 @@ class App():
         return
     
     def draw_training_result_widget(s):
-        widget=s.body.container(border=True)
+        widget=s.train_tab.container(border=True)
         widget.subheader("Training result")        
-        if 'training_in_progress' in st.session_state and st.session_state.training_in_progress == True:
-            training_in_progress = True
+        if 'training_button' in st.session_state and st.session_state.training_button == True:
+            st.session_state.training_in_progress = True
         else:
-            training_in_progress = False
-        widget.text(f"Training?={training_in_progress}")
+            st.session_state.training_in_progress = False
+
         s.training_result_text=widget.empty()
-        s.start_training=widget.button("Start Training",disabled=training_in_progress)
+        s.training_button_placeholder=widget.empty()
+        s.training_status_placeholder=widget.empty()
+        s.training_status_placeholder.text(f"Training?={st.session_state.training_in_progress}")
+        s.start_training=s.training_button_placeholder.button("Start Training",disabled=st.session_state.training_in_progress,key="training_button")
         return
     
     def draw_input_data_widget(s):
-        widget=s.body.expander("Input Data")
+        s.input_data=omid.OMInputData()
+        widget=s.train_tab.expander("Input Data")
         cols=widget.columns(2)
         col1=cols[0]
         col2=cols[1]
-        col1.text_input(label="Filename",value="data/stock_prices.csv")
-        col1.slider(label="Limit dataset",min_value=1,max_value=100000000,value=1000)
+        s.input_data.data_path=col1.text_input(label="Data Path",value="data")
+        s.input_data.data_file=col2.text_input(label="Data File",value="prepared_fav_animal_data.csv")
+        col1.slider(label="Limit dataset",min_value=1,max_value=100000000,value=10000)
         #col1.slider(label="Learning Rate",min_value=1e-6,max_value=1e-2,value=1e-3)
-        col2.text_input(label="Target column",placeholder="Column to predict")
+        s.input_data.predict_col=col2.text_input(label="Predict column",placeholder="Column to predict",value="fav_animal")
         col2.text_input(label="Date formats",placeholder="%d-%y-%m")
-        #col2.slider(label="Output Nodes",min_value=1,max_value=10,value=1)        
+        #col2.slider(label="Output Nodes",min_value=1,max_value=10,value=1)
         return
     
     def draw_hyper_parameter_widget(s):
-        widget=s.body.expander("Hyper Parameters")
+        widget=s.train_tab.expander("Hyper Parameters")
         cols=widget.columns(2)
         col1=cols[0]
         col2=cols[1]
+        display_factor=1000000
         s.hyper_parameters.num_epochs=col1.slider(label="Epochs",min_value=1,max_value=200,value=20)
         s.hyper_parameters.batch_size=col1.slider(label="Batch Size",min_value=1,max_value=128,value=1)
-        s.hyper_parameters.learning_rate=col1.slider(label="Learning Rate",min_value=1e-6,max_value=1e-2,value=1e-3)
-        s.hyper_parameters.first_layer_neurons=col2.slider(label="First Layer Neurons",min_value=1,max_value=1000,value=30)
+        s.hyper_parameters.learning_rate=( col1.slider(label="Learning Rate",min_value=int(1e-6*display_factor),max_value=int(1e-2*display_factor),value=int(1e-3*display_factor)) / display_factor )
+        s.hyper_parameters.first_layer_neurons=col2.slider(label="First Layer Neurons",min_value=1,max_value=100,value=4)
         s.hyper_parameters.hidden_layers=col2.slider(label="Hidden Layers",min_value=1,max_value=10,value=2)
         s.hyper_parameters.output_nodes=col2.slider(label="Output Nodes",min_value=1,max_value=10,value=1)
         widget.selectbox("Optimizer", ["Adam","Adamax","AdamW","Adagrad"])
         return
     
     def draw_settings_widget(s):
-        widget=s.body.expander("Settings")
+        widget=s.train_tab.expander("Settings")
         cols=widget.columns(2)
         col1=cols[0]
         col2=cols[1]
@@ -363,13 +369,59 @@ class App():
         s.settings.project_name=col2.text_input(label="Project Name",value="demo-project")
         return
     
+    def draw_data_insights(s):
+        s.data_insights_widget=s.train_tab.expander("Data Insights")
+        return
+
+    def draw_data_gen_widget(s):
+        s.data_gen_tab.header("Data Generation")        
+        rows_to_generate=s.data_gen_tab.slider("Rows",min_value=1000,max_value=100000,step=1000,value=10000)
+        generate_data=s.data_gen_tab.button("Generate Data")
+        status=s.data_gen_tab.empty()
+        if generate_data: 
+            status.info("Generating data...")
+            data_generator=omdg.OMDataGenerator()
+            data_generator.generate_fav_animal_data("data",file_name="fav_animal.csv",num_rows=rows_to_generate)
+            data_generator.prepare_fav_animal_data("data",file_name="fav_animal.csv",prepared_file_name='prepared_fav_animal_data.csv')
+            status.success("Data was generated!")
+        return    
+    
+    def draw_prediction_widget(s):
+        s.predict_tab.header("Prediction")        
+        #rows_to_generate=s.data_gen_tab.slider("Rows",min_value=1000,max_value=100000,step=1000,value=10000)
+        predict=s.predict_tab.button("Predict")
+        status=s.predict_tab.empty()
+        if predict: 
+            status.info("Predicting...")
+            predictor=ompr.OMPredictor()
+            model=predictor.load_model(project_folder=s.settings.project_folder,project_name=s.settings.project_name)
+            predictor.predict(model)
+            #data_generator.generate_fav_animal_data("data",file_name="fav_animal.csv",num_rows=rows_to_generate)
+            #data_generator.prepare_fav_animal_data("data",file_name="fav_animal.csv",prepared_file_name='prepared_fav_animal_data.csv')
+            status.success("Input was predicted!")
+        return
+    
+    def draw_tabs(s):
+        tabs=st.tabs(["🏋️‍♂️Training","🔮Prediction","📚Data Generation"])
+        s.train_tab=tabs[0]
+        s.predict_tab=tabs[1]
+        s.data_gen_tab=tabs[2]
+        return
+    
     def draw_template(s):
         s.body=st.container(border=False)
+        s.draw_tabs()
+        # Training tab
         s.draw_hyper_parameter_widget()
         s.draw_settings_widget()
         s.draw_input_data_widget()
+        s.draw_data_insights()
         s.draw_progress_widget()
         s.draw_training_result_widget()
+        # Data Gen tab
+        s.draw_data_gen_widget()
+        # Prediction tab
+        s.draw_prediction_widget()
         return
 
     def main(s):
@@ -382,17 +434,18 @@ class App():
         s.draw_template()        
         observer=omo.OMObserver(s)
         model_callback=ommc.OMModelCallback(observer)     
-        #synthetic_data_file='data/stock_prices.csv'
         #generate_synthetic_data(100, synthetic_data_file)                   
         if(s.start_training):
             try:
-                st.session_state.training_in_progress=True
+                #st.session_state.training_in_progress=True
                 oml.progress("training model...")
-                omt.train_model(hyper_parameters=s.hyper_parameters,settings=s.settings,observer=observer,modelCallback=model_callback)
+                omt.train_model(hyper_parameters=s.hyper_parameters,settings=s.settings,input_data=s.input_data,observer=observer,modelCallback=model_callback)
                 oml.success("model was trained!")
-                st.success("model was trained!")
+                s.train_tab.success("model was trained!")
             finally:
-                st.session_state.training_in_progress=False
+                st.session_state.training_in_progress = False
+                s.training_status_placeholder.text(f"Training?={st.session_state.training_in_progress}")
+                oml.success("done")
         #st.session_state['SELECTED_HOUSE_INDEX']
 
 app=App()

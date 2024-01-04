@@ -18,6 +18,7 @@ import modules.om_observer as omo
 import modules.om_data_loader as omdl
 import modules.om_hyper_params as omhp
 import modules.om_settings as oms
+import modules.om_input_data as omid
 
 #region functions
 def save_model_as_hd5_and_json(project_folder,project_name,model):
@@ -154,21 +155,29 @@ def getTimePrefix():
     now = dt.datetime.now()
     return now.strftime("%H:%M:%S.%f")[:-3] 
 
-def create_sequential_model(train_data_features,first_layer_neurons:int=30,hidden_layers:int=2,output_nodes:int=2):
-    model = keras.models.Sequential([
-        keras.layers.Dense(first_layer_neurons, activation="relu", input_shape=train_data_features.shape[1:]), # train_data_features.shape[1:] slices off the first element of the shape tuple, which is typically the number of samples.
-        keras.layers.Dense(1) # The second layer has 1 node for output.
-    ])
+def create_sequential_model(train_data_features,first_layer_neurons:int=30,hidden_layers:int=2,output_nodes:int=1):
+    # train_data_features.shape[1:] slices off the first element of the shape tuple, which is typically the number of samples.
+    model = keras.models.Sequential([keras.layers.Dense(first_layer_neurons, activation="relu", input_shape=train_data_features.shape[1:])]) 
+    i:int=0
+    while i<hidden_layers:
+        neurons=first_layer_neurons/((i+1)*2)
+        if(neurons<0): neurons=first_layer_neurons
+        model.layers.append(keras.layers.Dense(neurons, activation="relu"))
+        i+=1
+        
+    model.layers.append(keras.layers.Dense(output_nodes)) # The output layer normally has just 1 node
     return model
 
 #endregion functions
 
-def train_model(hyper_parameters:omhp.OMHyperParameters,settings:oms.OMSettings,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
+def train_model(hyper_parameters:omhp.OMHyperParameters,settings:oms.OMSettings,input_data:omid.OMInputData,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     oml.debug("train_model called!")
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_data_old(synthetic_data_file)
     data_loader=omdl.OMDataLoader()
     #train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_trade_data()
-    train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_mnist_housing_data()
+    #train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_mnist_housing_data()
+    oml.debug(f"train_model().predict_col={input_data.predict_col}")
+    train_data_features, train_data_target, eval_data_features, eval_data_target=data_loader.load_fav_animal_data(data_path=input_data.data_path,data_file=input_data.data_file,predict_col=input_data.predict_col)
     observer.observe(observer.DATA_LOADED_EVENT, args=(train_data_features, train_data_target, eval_data_features, eval_data_target))
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_mnist_housing_data()
     #exit(1)

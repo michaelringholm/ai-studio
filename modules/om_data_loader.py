@@ -24,12 +24,13 @@ class OMDataLoader():
             oml.error(f"Invalid date [{date_str}]")
             return None
         
-    def split_data(s,df,target_col):
-        train_data, eval_data = train_test_split(df, test_size=0.2, shuffle=False)        
-        train_data_features = train_data.drop(target_col, axis=1).values
-        train_data_target = train_data[target_col].values
-        eval_data_features = eval_data.drop(target_col, axis=1).values
-        eval_data_target = eval_data[target_col].values
+    def split_data(s,df,predict_col):
+        train_data, eval_data = train_test_split(df, test_size=0.2, shuffle=False)
+        oml.debug(f"split_data().train_data is {train_data}")
+        train_data_features = train_data.drop(predict_col, axis=1).values
+        train_data_target = train_data[predict_col].values
+        eval_data_features = eval_data.drop(predict_col, axis=1).values
+        eval_data_target = eval_data[predict_col].values
         np.set_printoptions(precision=2)
         return train_data_features, train_data_target, eval_data_features, eval_data_target
     
@@ -76,12 +77,20 @@ class OMDataLoader():
         full_path=f"cache/{file_name}"
         return os.path.exists(full_path)    
     
-    def load_trade_data(s):
+    def load_trade_data(s,data_path:str,data_file:str,predict_col:str):
         oml.debug("load_trade_data called!")
         data_file='data/stock_prices.csv'
-        target_col="future_quote" # remove the column that we will predict from the input data set
+        #target_col="future_quote" # remove the column that we will predict from the input data set
         df=s.load_file_as_pd(data_file,date_col="date",index_col="date",date_format='%y-%m-%d')
-        return s.split_data(df,target_col=target_col)
+        return s.split_data(df,predict_col=predict_col)
+    
+    def load_fav_animal_data(s,data_path:str,data_file:str,predict_col:str):
+        oml.debug("load_fav_animal_data() called!")
+        file_path=os.path.join(data_path,data_file)
+        df=s.load_file_as_pd(file_path)
+        oml.debug("fav_animal_data after load()")
+        print(df)
+        return s.split_data(df,predict_col=predict_col)    
 
     def load_mnist_housing_data(s):
         from sklearn.datasets import fetch_california_housing
