@@ -10,6 +10,7 @@ import traceback as trc
 import modules.om_logging as oml
 import modules.om_observer as omo
 import modules.om_hyper_params as omhp
+import modules.om_settings as oms
 import keras
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -315,9 +316,15 @@ class App():
         return
     
     def draw_training_result_widget(s):
-        s.training_result_widget=s.body.container(border=True)
-        s.training_result_widget.subheader("Training result")
-        s.training_result_text=s.training_result_widget.text("Awaiting training job")
+        widget=s.body.container(border=True)
+        widget.subheader("Training result")        
+        if 'training_in_progress' in st.session_state and st.session_state.training_in_progress == True:
+            training_in_progress = True
+        else:
+            training_in_progress = False
+        widget.text(f"Training?={training_in_progress}")
+        s.training_result_text=widget.empty()
+        s.start_training=widget.button("Start Training",disabled=training_in_progress)
         return
     
     def draw_input_data_widget(s):
@@ -347,9 +354,19 @@ class App():
         widget.selectbox("Optimizer", ["Adam","Adamax","AdamW","Adagrad"])
         return
     
+    def draw_settings_widget(s):
+        widget=s.body.expander("Settings")
+        cols=widget.columns(2)
+        col1=cols[0]
+        col2=cols[1]
+        s.settings.project_folder=col1.text_input(label="Project Folder",value="projects")
+        s.settings.project_name=col2.text_input(label="Project Name",value="demo-project")
+        return
+    
     def draw_template(s):
         s.body=st.container(border=False)
         s.draw_hyper_parameter_widget()
+        s.draw_settings_widget()
         s.draw_input_data_widget()
         s.draw_progress_widget()
         s.draw_training_result_widget()
@@ -360,16 +377,22 @@ class App():
         s.init_streamlit()
         oml.success("Started streamlit")
         s.hyper_parameters=s.build_hyper_parameters()
+        s.settings=oms.OMSettings()
         s.draw_footer()
-        s.draw_template()
-        oml.progress("training model...")
+        s.draw_template()        
         observer=omo.OMObserver(s)
         model_callback=ommc.OMModelCallback(observer)     
         #synthetic_data_file='data/stock_prices.csv'
         #generate_synthetic_data(100, synthetic_data_file)                   
-        omt.train_model(s.hyper_parameters,observer, model_callback)
-        oml.success("model was trained!")
-        st.success("model was trained!")
+        if(s.start_training):
+            try:
+                st.session_state.training_in_progress=True
+                oml.progress("training model...")
+                omt.train_model(hyper_parameters=s.hyper_parameters,settings=s.settings,observer=observer,modelCallback=model_callback)
+                oml.success("model was trained!")
+                st.success("model was trained!")
+            finally:
+                st.session_state.training_in_progress=False
         #st.session_state['SELECTED_HOUSE_INDEX']
 
 app=App()

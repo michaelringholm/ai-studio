@@ -17,23 +17,29 @@ import modules.om_model_callback as ommc
 import modules.om_observer as omo
 import modules.om_data_loader as omdl
 import modules.om_hyper_params as omhp
+import modules.om_settings as oms
 
 #region functions
-def save_model_as_hd5_and_json(model):
-    # save architecture 
+def save_model_as_hd5_and_json(project_folder,project_name,model):
+    model_architecture_file_path=os.path.join(project_folder,project_name,"model-architecture.json")
+    model_weights_file_path=os.path.join(project_folder,project_name,"model-weights.h5")
     model_json = model.to_json()
-    with open("model-architecture.json", "w") as json_file:
+    os.makedirs(os.path.dirname(model_architecture_file_path), exist_ok=True)
+    with open(model_architecture_file_path, "w") as json_file:
         json_file.write(model_json)
+    os.makedirs(os.path.dirname(model_weights_file_path), exist_ok=True)
+    model.save_weights(model_weights_file_path)
 
-    # save weights
-    model.save_weights("model-weights.h5")
-
+def load_model(project_folder,project_name):
+    model_architecture_file_path=os.path.join(project_folder,project_name,"model-architecture.json")
+    model_weights_file_path=os.path.join(project_folder,project_name,"model-weights.h5")
     # load architecture and weights back
     from keras.models import model_from_json
-    with open("model-architecture.json") as json_file:
+    with open(model_architecture_file_path) as json_file:
         model_json = json_file.read()
     model = model_from_json(model_json)
-    model.load_weights("model-weights.h5")
+    model.load_weights(model_weights_file_path)
+    return model
 
 def save_model_as_hd5(model):
     # Save and load model
@@ -157,7 +163,7 @@ def create_sequential_model(train_data_features,first_layer_neurons:int=30,hidde
 
 #endregion functions
 
-def train_model(hyper_parameters:omhp.OMHyperParameters,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
+def train_model(hyper_parameters:omhp.OMHyperParameters,settings:oms.OMSettings,observer:omo.OMObserver,modelCallback:ommc.OMModelCallback):
     oml.debug("train_model called!")
     #train_data_features, train_data_target, eval_data_features, eval_data_target=load_data_old(synthetic_data_file)
     data_loader=omdl.OMDataLoader()
@@ -234,7 +240,7 @@ def train_model(hyper_parameters:omhp.OMHyperParameters,observer:omo.OMObserver,
     #model.fit(train_data, test_data, epochs=100, verbose=0) 
 
     #save_model_as_hd5(model)
-    save_model_as_hd5_and_json(model)
+    save_model_as_hd5_and_json(model=model,project_folder=settings.project_folder,project_name=settings.project_name)
     #predictions = model.predict(model, X_test)
     #print(f"predictions={predictions}")
 

@@ -60,13 +60,15 @@ class OMDataLoader():
                 #df=df.tail(-1)
                 #df=df.iloc[1:]
                 #df.drop(index=df.index[0], axis=0, inplace=True)
-                oml.debug(f"df={df}")
+                #oml.debug(f"df={df}")
                 df.to_csv(full_path,index=False,header=False)
                 #writer.writerows(data)
             else:
-                for i in range(len(data)):
-                    row = data[i]
-                    writer.writerow(row)
+                df=pd.DataFrame(data)
+                df.to_csv(full_path,index=False,header=False)
+                #for i in range(len(data)):
+                    #row = data[i]
+                    #writer.writerow(row)
 
     def is_cached(s,file_name:str):
         #url_hash = hashlib.md5(searchUrl.encode()).hexdigest()
@@ -86,11 +88,10 @@ class OMDataLoader():
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler
         housing = fetch_california_housing()
-        #oml.debug(housing['target'])
-        #oml.debug(type(housing['target']))
+        #print(housing)
         s.write_to_local_cache_as_csv("mnist_housing_feature_data.csv",housing['data'])
         s.write_to_local_cache_as_csv("mnist_housing_target_data.csv",housing['target'])
-        s.write_to_local_cache_as_csv("mnist_housing_target_names.csv",housing['target_names'])
+        s.write_to_local_cache_as_csv("mnist_housing_feature_names.csv",housing['feature_names'])
         X_train_full, X_test, y_train_full, y_test = train_test_split(housing.data, housing.target, random_state=42)
         X_train, X_valid, y_train, y_valid = train_test_split(X_train_full, y_train_full, random_state=42)
         scaler = StandardScaler()
